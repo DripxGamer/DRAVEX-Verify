@@ -82,7 +82,10 @@ async function enviarMensagemVerificacao(channel) {
   const embed = new EmbedBuilder()
     .setColor('#111214')
     .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
-    .setDescription('Clique em **Verificar-se** para iniciar a verificação.')
+   .setDescription(
+  `${CONFIG.EMOJIS.LOCK} Para verificar sua conta, use os botões abaixo.\n` +
+  `Use o segundo botão para descobrir o motivo desta verificação.\n` +
+  `> **Caso ocorra algum problema, contate a administração.**`)
     .setThumbnail('https://i.imgur.com/mXV0zMT.png')   // 👈 ADICIONADO — LOGO NO CANTO SUPERIOR DIREITO
     .setImage(ASSETS.BANNER)
     .setTimestamp();
@@ -111,13 +114,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isButton()) {
 
-      if (interaction.customId === "info_verificacao") {
-        const embed = new EmbedBuilder()
-          .setColor('#2b2d31')
-          .setTitle(`${CONFIG.EMOJIS.ANUNCIO} Por que a verificação é necessária?`)
-          .setDescription("Protege o servidor contra bots e spam.")
-        return interaction.reply({ embeds: [embed], ephemeral: true });
-      }
+if (interaction.customId === "info_verificacao") {
+  const embed = new EmbedBuilder()
+    .setColor('#2b2d31')
+    .setTitle(`${CONFIG.EMOJIS.ANUNCIO} Por que a verificação é necessária?`)
+    .setDescription(
+      "> **A verificação de captcha é uma medida de segurança essencial.**\n\n" +
+      "Ela ajuda a proteger nosso servidor contra bots e selfbots maliciosos que " +
+      "enviam mensagens indesejadas ou tentam divulgar conteúdos no privado de nossos membros. " +
+      "Esses comportamentos são inconvenientes e podem comprometer a experiência de todos.\n\n" +
+      "Com essa verificação, garantimos que apenas pessoas reais tenham acesso, " +
+      "mantendo o ambiente seguro e agradável para todos."
+    );
+
+  return interaction.reply({ embeds: [embed], ephemeral: true });
+}
 
       if (interaction.customId === "verificar") {
         const codes = Object.keys(CAPTCHA_MAP);
@@ -204,5 +215,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(CONFIG.TOKEN);
+
 
 
