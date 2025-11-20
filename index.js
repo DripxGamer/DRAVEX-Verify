@@ -1,203 +1,137 @@
-const {
-    Client,
-    GatewayIntentBits,
-    EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    StringSelectMenuBuilder,
-    ButtonStyle
-} = require('discord.js');
+import { Client, GatewayIntentBits, Partials, ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import dotenv from "dotenv";
+dotenv.config();
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
-    ]
+    ],
+    partials: [Partials.Channel]
 });
 
-// Config
-const CONFIG = {
-    TOKEN: process.env.TOKEN,
-    VERIFICATION_CHANNEL_ID: process.env.VERIFICATION_CHANNEL_ID,
-    VERIFIED_ROLE_ID: process.env.VERIFIED_ROLE_ID,
-    EMOJIS: {
-        LOCK: '<:locked:1441125870453657620>',
-        BOTAO: '<:bot:1439906396886925352>',
-        ANUNCIO: '<:anuncio:1439906320991125575>',
-        VERIFICADO: '<:verificado:1439616052115017900>'
-    }
+// EMOJIS
+const EMOJI_LOCK = "<:locked:1441125870453657620>";
+const EMOJI_BOT = "<:bot:1439906396886925352>";
+const EMOJI_INFO = "<:anuncio:1439906320991125575>";
+const EMOJI_CHECK = "<:verificado:1439616052115017900>";
+
+// CÓDIGOS & IMAGENS
+const codes = {
+    "FSQPQP": "https://i.imgur.com/dLQ9Rv0.png",
+    "SBF2HT": "https://i.imgur.com/Zsyj01b.png",
+    "XZMMB0": "https://i.imgur.com/lnajOmu.png",
+    "F3RXUR": "https://i.imgur.com/DliZdVn.png",
+    "PDSITR": "https://i.imgur.com/BpM03jO.png",
+    "HK9STB": "https://i.imgur.com/sSta3rh.png",
+    "QW72KP": "https://i.imgur.com/1Pmo1H1.png",
+    "MBF6ZR": "https://i.imgur.com/ItqI2aZ.png",
+    "T9XQPL": "https://i.imgur.com/L0wbBuG.png",
+    "ZKQ8MF": "https://i.imgur.com/ECp4dHd.png",
+    "GHS27B": "https://i.imgur.com/ZuW4Y4d.png",
+    "PXLQ9T": "https://i.imgur.com/O9w4gto.png",
+    "WSN4JP": "https://i.imgur.com/Rcysm1u.png",
+    "R8DTXM": "https://i.imgur.com/zbZHxA1.png",
+    "JLQP32": "https://i.imgur.com/YDGoUC6.png"
 };
 
-// CAPTCHA ativos
-const captchas = new Map();
+// Função para enviar o painel ao iniciar
+async function sendVerificationPanel() {
+    const channel = await client.channels.fetch(process.env.CHANNEL_ID);
+    if (!channel) return console.log("CANAL NÃO ENCONTRADO!");
 
-// Gera código
-function gerarCaptcha() {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let code = "";
-    for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
-    return code;
-}
-
-// Gera opções fake
-function gerarOpcoes(code) {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    const arr = [code];
-
-    while (arr.length < 5) {
-        let fake = "";
-        for (let i = 0; i < 6; i++) fake += chars[Math.floor(Math.random() * chars.length)];
-        if (!arr.includes(fake)) arr.push(fake);
-    }
-
-    return arr.sort(() => Math.random() - 0.5);
-}
-
-// Enviar PAINEL automaticamente ao iniciar
-client.once("ready", async () => {
-    console.log(`✅ Bot iniciado como ${client.user.tag}`);
-
-    const canal = await client.channels.fetch(CONFIG.VERIFICATION_CHANNEL_ID);
-    if (!canal) return console.log("❌ Canal de verificação inválido.");
-
-    // Apaga mensagens antigas
-    try {
-        const msgs = await canal.messages.fetch({ limit: 20 });
-        const botMsgs = msgs.filter(m => m.author.id === client.user.id);
-        canal.bulkDelete(botMsgs).catch(() => {});
-    } catch {}
-
-    // Embed estilo imagem
     const embed = new EmbedBuilder()
         .setColor("#2b2d31")
-        .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
-        .setDescription(`Para verificar sua conta, use os botões abaixo.\nUse o segundo botão para descobrir o motivo desta verificação.`)
-        .setImage("attachment://banner.png")
-        .setFooter({ text: "Caso ocorra algum problema, contate a administração." });
+        .setTitle(`${EMOJI_LOCK} Verificação`)
+        .setDescription(
+            `${EMOJI_INFO} **Por que a verificação é necessária?**\n` +
+            "Para garantir que você não é um bot e manter o servidor seguro."
+        )
+        .setImage("https://i.imgur.com/D031fg5.png")
+        .setFooter({ text: "Clique no botão abaixo para iniciar a verificação." });
 
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId("verificar")
-            .setLabel("Verificar-se")
-            .setEmoji(CONFIG.EMOJIS.BOTAO)
-            .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-            .setCustomId("motivo")
-            .setEmoji(CONFIG.EMOJIS.ANUNCIO)
-            .setStyle(ButtonStyle.Secondary)
-    );
+    const button = new ButtonBuilder()
+        .setCustomId("start_verification")
+        .setLabel("Verificar")
+        .setEmoji("1439906396886925352")
+        .setStyle(ButtonStyle.Primary);
 
-    // Envia com imagem igual à da screenshot
-    await canal.send({
-        embeds: [embed],
-        files: ["./banner.png"], // <- ESTA IMAGEM ESTÁ TE FALTANDO, JÁ VOU EXPLICAR
-        components: [row]
-    });
+    const row = new ActionRowBuilder().addComponents(button);
 
-    console.log("✅ Painel enviado automaticamente!");
+    await channel.send({ embeds: [embed], components: [row] });
+}
+
+// Bot pronto
+client.once("clientReady", () => {
+    console.log("BOT ONLINE ✔️");
+    sendVerificationPanel(); // Envia painel ao iniciar
 });
 
-// Interações
-client.on("interactionCreate", async interaction => {
-    if (!interaction.isButton() && !interaction.isStringSelectMenu()) return;
+// Click no botão
+client.on("interactionCreate", async (interaction) => {
+    if (!interaction.isButton()) return;
 
-    // MOTIVO
-    if (interaction.customId === "motivo") {
-        await interaction.reply({
-            ephemeral: true,
-            embeds: [
-                new EmbedBuilder()
-                    .setColor("#2b2d31")
-                    .setTitle(`${CONFIG.EMOJIS.ANUNCIO} Por que a verificação é necessária?`)
-                    .setDescription(
-                        "A verificação de captcha é uma medida de segurança essencial.\n\n" +
-                        "Ela ajuda a proteger nosso servidor contra bots e selfbots maliciosos " +
-                        "que enviam mensagens indesejadas ou tentam divulgar conteúdos no privado " +
-                        "de nossos membros.\n\n" +
-                        "Com essa verificação, garantimos que apenas pessoas reais tenham acesso, " +
-                        "mantendo o ambiente seguro e agradável para todos."
-                    )
-            ]
-        });
-    }
+    if (interaction.customId === "start_verification") {
+        const allCodes = Object.keys(codes);
 
-    // VERIFICAR
-    if (interaction.customId === "verificar") {
-        const code = gerarCaptcha();
-        captchas.set(interaction.user.id, code);
+        const correctCode = allCodes[Math.floor(Math.random() * allCodes.length)];
+        const correctImage = codes[correctCode];
 
-        const opcoes = gerarOpcoes(code);
+        const options = shuffle([
+            correctCode,
+            ...pickRandomExcept(allCodes, correctCode, 4)
+        ]).map(code => ({
+            label: code,
+            value: code
+        }));
 
         const embed = new EmbedBuilder()
-            .setColor("#2b2d31")
-            .setImage("attachment://captcha.png")
-            .setFooter({ text: "Selecione o texto que é exibido na imagem." });
+            .setColor("#1e1f22")
+            .setImage(correctImage);
 
         const menu = new StringSelectMenuBuilder()
-            .setCustomId("escolher")
+            .setCustomId(`verify_${correctCode}`)
             .setPlaceholder("Selecione o texto que é exibido na imagem.")
-            .addOptions(opcoes.map(o => ({ label: o, value: o })));
+            .addOptions(options);
+
+        const row = new ActionRowBuilder().addComponents(menu);
 
         await interaction.reply({
-            ephemeral: true,
             embeds: [embed],
-            components: [new ActionRowBuilder().addComponents(menu)],
-            files: [{
-                attachment: Buffer.from(`
-██████╗ ███████╗███████╗███████╗██╗  ██╗███████╗██╗   ██╗ █████╗  ██████╗
-██╔══██╗██╔════╝██╔════╝██╔════╝██║ ██╔╝██╔════╝██║   ██║██╔══██╗██╔════╝
-██████╔╝█████╗  █████╗  █████╗  █████╔╝ █████╗  ██║   ██║███████║██║     
-██╔══██╗██╔══╝  ██╔══╝  ██╔══╝  ██╔═██╗ ██╔══╝  ██║   ██║██╔══██║██║     
-██║  ██║███████╗███████╗███████╗██║  ██╗███████╗╚██████╔╝██║  ██║╚██████╗
-╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝
-
-${code}
-                `),
-                name: "captcha.png"
-            }]
-        });
-    }
-
-    // CAPTCHA
-    if (interaction.customId === "escolher") {
-        const correto = captchas.get(interaction.user.id);
-        const escolhido = interaction.values[0];
-
-        if (!correto) return interaction.update({
-            ephemeral: true,
-            content: "❌ Sessão expirada. Clique novamente em **Verificar-se**.",
-            embeds: [],
-            components: []
-        });
-
-        if (correto !== escolhido) {
-            captchas.delete(interaction.user.id);
-            return interaction.update({
-                ephemeral: true,
-                content: "❌ Código incorreto! Tente novamente.",
-                embeds: [],
-                components: []
-            });
-        }
-
-        // Sucesso
-        captchas.delete(interaction.user.id);
-        await interaction.member.roles.add(CONFIG.VERIFIED_ROLE_ID);
-
-        interaction.update({
-            ephemeral: true,
-            embeds: [
-                new EmbedBuilder()
-                    .setColor("#00ff88")
-                    .setTitle(`${CONFIG.EMOJIS.VERIFICADO} Verificação concluída com sucesso!`)
-                    .setDescription("*(editado)*")
-            ],
-            components: []
+            components: [row],
+            ephemeral: true
         });
     }
 });
 
-// Login
-client.login(CONFIG.TOKEN);
+// Dropdown selecionado
+client.on("interactionCreate", async (interaction) => {
+    if (!interaction.isStringSelectMenu()) return;
+
+    const correctCode = interaction.customId.replace("verify_", "");
+
+    if (interaction.values[0] === correctCode) {
+        return interaction.reply({
+            content: `${EMOJI_CHECK} **Verificado com sucesso!**`,
+            ephemeral: true
+        });
+    } else {
+        return interaction.reply({
+            content: "❌ Código incorreto. Tente novamente!",
+            ephemeral: true
+        });
+    }
+});
+
+// Funções auxiliares
+function pickRandomExcept(list, except, count) {
+    const filtered = list.filter(x => x !== except);
+    return shuffle(filtered).slice(0, count);
+}
+
+function shuffle(array) {
+    return array.sort(() => Math.random() - 0.5);
+}
+
+client.login(process.env.TOKEN);
