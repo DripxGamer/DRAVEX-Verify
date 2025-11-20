@@ -105,12 +105,6 @@ async function enviarMensagemVerificacao(channel) {
 
 client.once("clientReady", async () => {
   console.log(`✅ Bot online como ${client.user.tag}`);
-  try {
-    const channel = await client.channels.fetch(CONFIG.VERIFICATION_CHANNEL_ID);
-    if (channel) await enviarMensagemVerificacao(channel);
-  } catch (err) {
-    console.log("Erro ao enviar painel:", err);
-  }
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -210,4 +204,5 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(CONFIG.TOKEN);
+
 
