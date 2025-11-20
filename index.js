@@ -82,11 +82,11 @@ async function enviarMensagemVerificacao(channel) {
   const embed = new EmbedBuilder()
     .setColor('#111214')
     .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
-   .setDescription(
-  `${CONFIG.EMOJIS.LOCK} Para verificar sua conta, use os botões abaixo.\n` +
-  `Use o segundo botão para descobrir o motivo desta verificação.\n` +
-  `> **Caso ocorra algum problema, contate a administração.**`)
-    .setThumbnail('https://i.imgur.com/mXV0zMT.png')   // 👈 ADICIONADO — LOGO NO CANTO SUPERIOR DIREITO
+    .setDescription(
+      `${CONFIG.EMOJIS.LOCK} Para verificar sua conta, use os botões abaixo.\n` +
+      `Use o segundo botão para descobrir o motivo desta verificação.\n` +
+      `> **Caso ocorra algum problema, contate a administração.**`)
+    .setThumbnail('https://i.imgur.com/mXV0zMT.png')
     .setImage(ASSETS.BANNER)
     .setTimestamp();
 
@@ -106,30 +106,43 @@ async function enviarMensagemVerificacao(channel) {
   await channel.send({ embeds: [embed], components: [row] });
 }
 
-client.once("clientReady", async () => {
+// ---------- READY ----------
+client.once(Events.ClientReady, async () => {
   console.log(`✅ Bot online como ${client.user.tag}`);
+
+  const channel = client.channels.cache.get(CONFIG.VERIFICATION_CHANNEL_ID);
+
+  if (!channel) {
+    console.error("❌ Canal de verificação não encontrado.");
+    return;
+  }
+
+  enviarMensagemVerificacao(channel);
 });
 
+// ---------- INTERAÇÕES ----------
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isButton()) {
 
-if (interaction.customId === "info_verificacao") {
-  const embed = new EmbedBuilder()
-    .setColor('#2b2d31')
-    .setTitle(`${CONFIG.EMOJIS.ANUNCIO} Por que a verificação é necessária?`)
-    .setDescription(
-      "> **A verificação de captcha é uma medida de segurança essencial.**\n\n" +
-      "Ela ajuda a proteger nosso servidor contra bots e selfbots maliciosos que " +
-      "enviam mensagens indesejadas ou tentam divulgar conteúdos no privado de nossos membros. " +
-      "Esses comportamentos são inconvenientes e podem comprometer a experiência de todos.\n\n" +
-      "Com essa verificação, garantimos que apenas pessoas reais tenham acesso, " +
-      "mantendo o ambiente seguro e agradável para todos."
-    );
+      // ℹ️ INFO DA VERIFICAÇÃO
+      if (interaction.customId === "info_verificacao") {
+        const embed = new EmbedBuilder()
+          .setColor('#2b2d31')
+          .setTitle(`${CONFIG.EMOJIS.ANUNCIO} Por que a verificação é necessária?`)
+          .setDescription(
+            "> **A verificação de captcha é uma medida de segurança essencial.**\n\n" +
+            "Ela ajuda a proteger nosso servidor contra bots e selfbots maliciosos que " +
+            "enviam mensagens indesejadas ou tentam divulgar conteúdos no privado de nossos membros. " +
+            "Esses comportamentos são inconvenientes e podem comprometer a experiência de todos.\n\n" +
+            "Com essa verificação, garantimos que apenas pessoas reais tenham acesso, " +
+            "mantendo o ambiente seguro e agradável para todos."
+          );
 
-  return interaction.reply({ embeds: [embed], ephemeral: true });
-}
+        return interaction.reply({ embeds: [embed], ephemeral: true });
+      }
 
+      // 🔐 INICIAR CAPTCHA
       if (interaction.customId === "verificar") {
         const codes = Object.keys(CAPTCHA_MAP);
         const correct = codes[Math.floor(Math.random() * codes.length)];
@@ -160,6 +173,7 @@ if (interaction.customId === "info_verificacao") {
       }
     }
 
+    // MENU DE SELEÇÃO DO CAPTCHA
     if (interaction.isStringSelectMenu()) {
       if (!interaction.customId.startsWith("captcha_select_")) return;
 
@@ -187,7 +201,6 @@ if (interaction.customId === "info_verificacao") {
       if (!role)
         return interaction.update({ content: "Cargo não encontrado.", embeds: [], components: [] });
 
-      // Já tem cargo
       if (interaction.member.roles.cache.has(role.id)) {
         return interaction.update({
           embeds: [
@@ -199,7 +212,6 @@ if (interaction.customId === "info_verificacao") {
         });
       }
 
-      // Adicionar cargo
       await interaction.member.roles.add(role);
       activeCaptchas.delete(userId);
 
@@ -215,6 +227,3 @@ if (interaction.customId === "info_verificacao") {
 });
 
 client.login(CONFIG.TOKEN);
-
-
-
