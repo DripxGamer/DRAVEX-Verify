@@ -86,7 +86,7 @@ const embed = new EmbedBuilder()
     `${CONFIG.EMOJIS.LOCK} Para verificar sua conta, use os botões abaixo.\n` +
     `Use o segundo botão para descobrir o motivo desta verificação.\n\n` +
     "```diff\n" +
-    "+ Caso ocorra algum problema, contate a administração.\n" +
+    "  ＞ Caso ocorra algum problema, contate a administração.\n" +
     "```"
   )
   .setThumbnail("https://i.imgur.com/mXV0zMT.png")
@@ -230,6 +230,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(CONFIG.TOKEN);
+
 
 
 
