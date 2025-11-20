@@ -69,11 +69,12 @@ async function enviarMensagemVerificacao(channel) {
         console.log('Não foi possível limpar mensagens antigas');
     }
 
-    // Embed principal
+    // Embed principal com thumbnail do cadeado
     const embedPrincipal = new EmbedBuilder()
-        .setColor('#3498db')
+        .setColor('#2B2D31')
         .setTitle(`${CONFIG.EMOJIS.LOCKED} VERIFICAÇÃO`)
         .setDescription('Para verificar sua conta, use os botões abaixo.\nUse o segundo botão para descobrir o motivo desta verificação.')
+        .setImage('https://i.imgur.com/qZGE8hH.png')
         .setFooter({ text: 'Caso ocorra algum problema, contate a administração.' })
         .setTimestamp();
 
@@ -106,7 +107,7 @@ client.on('interactionCreate', async interaction => {
     try {
         // Botão "Verificar-se"
         if (interaction.customId === 'verificar') {
-            // Responde IMEDIATAMENTE para evitar timeout
+            // Responde IMEDIATAMENTE
             await interaction.deferReply({ ephemeral: true });
 
             const member = interaction.member;
@@ -122,12 +123,12 @@ client.on('interactionCreate', async interaction => {
             const captchaCode = generateCaptcha();
             activeCaptchas.set(interaction.user.id, captchaCode);
 
-            // Cria imagem do CAPTCHA (embed com texto estilizado)
+            // Embed do CAPTCHA
             const embedCaptcha = new EmbedBuilder()
-                .setColor('#3498db')
-                .setTitle('VERIFICAÇÃO')
-                .setDescription(`\`\`\`\n${captchaCode}\n\`\`\``)
-                .setFooter({ text: 'Selecione o texto que é exibido na imagem.' });
+                .setColor('#2B2D31')
+                .setTitle(`${CONFIG.EMOJIS.LOCKED} VERIFICAÇÃO`)
+                .setDescription(`**${captchaCode}**\n\n**Instruções**\nSelecione o texto que é exibido na imagem.`)
+                .setFooter({ text: 'Selecione a opção correta abaixo' });
 
             // Opções do menu
             const options = generateFakeOptions(captchaCode);
@@ -155,7 +156,7 @@ client.on('interactionCreate', async interaction => {
             await interaction.deferReply({ ephemeral: true });
 
             const embedInfo = new EmbedBuilder()
-                .setColor('#3498db')
+                .setColor('#2B2D31')
                 .setTitle(`${CONFIG.EMOJIS.DEVELOPER} Por que a verificação é necessária?`)
                 .setDescription('**A verificação de captcha é uma medida de segurança essencial.**\n\nEla ajuda a proteger nosso servidor contra bots e selfbots maliciosos que enviam mensagens indesejadas ou tentam divulgar conteúdos no privado de nossos membros. Esses comportamentos são inconvenientes e podem comprometer a experiência de todos.\n\nCom essa verificação, garantimos que apenas pessoas reais tenham acesso, mantendo o ambiente seguro e agradável para todos.')
                 .setFooter({ text: 'Só você pode ver esta mensagem • Ignorar mensagem' });
@@ -167,14 +168,11 @@ client.on('interactionCreate', async interaction => {
 
         // Seleção do CAPTCHA
         if (interaction.customId === 'captcha_select') {
-            // Responde IMEDIATAMENTE
-            await interaction.deferUpdate();
-
             const selectedValue = interaction.values[0];
             const correctCaptcha = activeCaptchas.get(interaction.user.id);
 
             if (!correctCaptcha) {
-                return interaction.editReply({
+                return interaction.update({
                     content: '❌ Sessão expirada. Por favor, clique em "Verificar-se" novamente.',
                     embeds: [],
                     components: []
@@ -187,23 +185,32 @@ client.on('interactionCreate', async interaction => {
                 const role = interaction.guild.roles.cache.get(CONFIG.VERIFIED_ROLE_ID);
 
                 if (role) {
-                    await member.roles.add(role);
-                    
-                    const embedSucesso = new EmbedBuilder()
-                        .setColor('#00ff00')
-                        .setTitle(`${CONFIG.EMOJIS.VERIFIED} Verificação concluída com sucesso!`)
-                        .setDescription('*(editado)*')
-                        .setFooter({ text: 'Só você pode ver esta mensagem • Ignorar mensagem' });
+                    try {
+                        await member.roles.add(role);
+                        
+                        const embedSucesso = new EmbedBuilder()
+                            .setColor('#57F287')
+                            .setTitle(`${CONFIG.EMOJIS.VERIFIED} Verificação concluída com sucesso!`)
+                            .setDescription('*(editado)*')
+                            .setFooter({ text: 'Só você pode ver esta mensagem • Ignorar mensagem' });
 
-                    await interaction.editReply({
-                        content: null,
-                        embeds: [embedSucesso],
-                        components: []
-                    });
+                        await interaction.update({
+                            content: null,
+                            embeds: [embedSucesso],
+                            components: []
+                        });
 
-                    activeCaptchas.delete(interaction.user.id);
+                        activeCaptchas.delete(interaction.user.id);
+                    } catch (error) {
+                        console.error('Erro ao adicionar cargo:', error);
+                        await interaction.update({
+                            content: '❌ Erro ao adicionar cargo. Verifique se o bot tem permissões suficientes!',
+                            embeds: [],
+                            components: []
+                        });
+                    }
                 } else {
-                    await interaction.editReply({
+                    await interaction.update({
                         content: '❌ Erro: Cargo de verificação não encontrado!',
                         embeds: [],
                         components: []
@@ -213,7 +220,7 @@ client.on('interactionCreate', async interaction => {
                 // CAPTCHA incorreto
                 activeCaptchas.delete(interaction.user.id);
                 
-                await interaction.editReply({
+                await interaction.update({
                     content: '❌ Código incorreto! Por favor, tente novamente clicando em "Verificar-se".',
                     embeds: [],
                     components: []
@@ -223,9 +230,9 @@ client.on('interactionCreate', async interaction => {
     } catch (error) {
         console.error('Erro na interação:', error);
         try {
-            if (interaction.deferred || interaction.replied) {
+            if (interaction.deferred) {
                 await interaction.editReply({ content: '❌ Ocorreu um erro. Tente novamente.' });
-            } else {
+            } else if (!interaction.replied) {
                 await interaction.reply({ content: '❌ Ocorreu um erro. Tente novamente.', ephemeral: true });
             }
         } catch (err) {
