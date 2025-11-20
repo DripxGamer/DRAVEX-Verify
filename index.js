@@ -1,4 +1,4 @@
-// index.js - Single-file, Railway-ready verification bot (CommonJS)
+// index.js - Bot de verificação (CommonJS)
 const {
   Client,
   GatewayIntentBits,
@@ -71,6 +71,7 @@ function buildOptions(correct, allCodes, n = 5) {
   return shuffle([correct, ...chosen]);
 }
 
+// ------------------------------------------
 async function enviarMensagemVerificacao(channel) {
 
   try {
@@ -134,7 +135,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
           .setColor('#2b2d31')
           .setTitle(`${CONFIG.EMOJIS.ANUNCIO} Por que a verificação é necessária?`)
           .setDescription(
-            "> **A verificação de captcha é uma medida de segurança essencial.**\n\n" +
+            "```diff\n" +
+            "A verificação de captcha é uma medida de segurança essencial.\n" +
+            "```\n" +
             "Ela ajuda a proteger nosso servidor contra bots e selfbots maliciosos que " +
             "enviam mensagens indesejadas ou tentam divulgar conteúdos no privado de nossos membros. " +
             "Esses comportamentos são inconvenientes e podem comprometer a experiência de todos.\n\n" +
@@ -172,15 +175,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         const row = new ActionRowBuilder().addComponents(select);
 
-        return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+        return interaction.reply({
+          embeds: [embed],
+          components: [row],
+          ephemeral: true
+        });
       }
     }
 
-    // MENU DE SELEÇÃO DO CAPTCHA
+    // MENU CAPTCHA
     if (interaction.isStringSelectMenu()) {
       if (!interaction.customId.startsWith("captcha_select_")) return;
 
       const userId = interaction.customId.split("captcha_select_")[1];
+
       if (interaction.user.id !== userId)
         return interaction.reply({ content: "Esta verificação não é sua.", ephemeral: true });
 
@@ -224,6 +232,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       return interaction.update({ embeds: [success], components: [] });
     }
+
   } catch (err) {
     console.log("Erro:", err);
   }
