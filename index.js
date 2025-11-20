@@ -103,7 +103,7 @@ async function enviarMensagemVerificacao(channel) {
   await channel.send({ embeds: [embed], components: [row] });
 }
 
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   console.log(`✅ Bot online como ${client.user.tag}`);
   try {
     const channel = await client.channels.fetch(CONFIG.VERIFICATION_CHANNEL_ID);
@@ -210,3 +210,4 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(CONFIG.TOKEN);
+
