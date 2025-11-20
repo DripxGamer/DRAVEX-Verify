@@ -84,13 +84,14 @@ const embed = new EmbedBuilder()
   .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
   .setDescription(
     `${CONFIG.EMOJIS.LOCK} Para verificar sua conta, use os botões abaixo.\n` +
-    `Use o segundo botão para descobrir o motivo desta verificação.\n\n`
-      value: "> **Caso ocorra algum problema, contate a administração.**"
+    `Use o segundo botão para descobrir o motivo desta verificação.\n\n` +
+    "```diff\n" +
+    "+ Caso ocorra algum problema, contate a administração.\n" +
+    "```"
   )
   .setThumbnail("https://i.imgur.com/mXV0zMT.png")
   .setImage(ASSETS.BANNER)
   .setTimestamp();
-
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -229,6 +230,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(CONFIG.TOKEN);
+
 
 
 
