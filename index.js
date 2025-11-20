@@ -137,4 +137,106 @@ client.on('interactionCreate', async interaction => {
                 .setDescription(`**${captcha}**\n\n**Instruções:**\nSelecione o texto exibido acima.`)
                 .setFooter({ text: 'Selecione abaixo a opção correta' });
 
-            const menu = new StringSel
+            const menu = new StringSelectMenuBuilder()
+                .setCustomId('captcha_select')
+                .setPlaceholder('Selecione a opção correta')
+                .addOptions(
+                    generateFakeOptions(captcha).map(opt => ({
+                        label: opt,
+                        value: opt,
+                        emoji: '🔒'
+                    }))
+                );
+
+            const rowSelect = new ActionRowBuilder().addComponents(menu);
+
+            await interaction.editReply({
+                embeds: [embedCaptcha],
+                components: [rowSelect]
+            });
+        }
+
+        // BOTÃO INFORMAÇÕES
+        if (interaction.customId === 'info_verificacao') {
+            await interaction.deferReply({ ephemeral: true });
+
+            const embedInfo = new EmbedBuilder()
+                .setColor('#2B2D31')
+                .setTitle(`${CONFIG.EMOJIS.DEVELOPER} Por que a verificação é necessária?`)
+                .setDescription(
+                    '**A verificação de captcha é uma medida de segurança essencial.**\n\n' +
+                    'Ela impede que bots e selfbots maliciosos entrem no servidor e perturbem os membros. ' +
+                    'Assim garantimos um ambiente seguro e limpo para todos.'
+                )
+                .setFooter({ text: 'Só você pode ver esta mensagem • Ignorar mensagem' });
+
+            await interaction.editReply({ embeds: [embedInfo] });
+        }
+
+        // CAPTCHA
+        if (interaction.customId === 'captcha_select') {
+            const selected = interaction.values[0];
+            const correct = activeCaptchas.get(interaction.user.id);
+
+            if (!correct) {
+                return interaction.update({
+                    content: '❌ Sessão expirada, clique novamente em "Verificar-se".',
+                    embeds: [],
+                    components: []
+                });
+            }
+
+            if (selected === correct) {
+                const role = interaction.guild.roles.cache.get(CONFIG.VERIFIED_ROLE_ID);
+
+                try {
+                    await interaction.member.roles.add(role);
+
+                    const embedOK = new EmbedBuilder()
+                        .setColor('#57F287')
+                        .setTitle(`${CONFIG.EMOJIS.VERIFIED} Verificação concluída com sucesso!`)
+                        .setFooter({ text: 'Só você pode ver esta mensagem • Ignorar mensagem' });
+
+                    await interaction.update({
+                        embeds: [embedOK],
+                        components: []
+                    });
+
+                    activeCaptchas.delete(interaction.user.id);
+
+                } catch (e) {
+                    await interaction.update({
+                        content: '❌ Erro ao adicionar cargo. Permissões insuficientes.',
+                        embeds: [],
+                        components: []
+                    });
+                }
+            } else {
+                activeCaptchas.delete(interaction.user.id);
+
+                await interaction.update({
+                    content: '❌ Código incorreto! Clique novamente em "Verificar-se".',
+                    embeds: [],
+                    components: []
+                });
+            }
+        }
+
+    } catch (err) {
+        console.error(err);
+    }
+});
+
+// Comando para reenviar a mensagem de verificação (admin)
+client.on('messageCreate', async message => {
+    if (
+        message.content === '!setup-verificacao' && 
+        message.member.permissions.has(PermissionFlagsBits.Administrator)
+    ) {
+        await enviarMensagemVerificacao(message.channel);
+        await message.delete().catch(() => {});
+    }
+});
+
+// Login
+client.login(CONFIG.TOKEN);
