@@ -79,16 +79,21 @@ async function enviarMensagemVerificacao(channel) {
     if (botMsgs.size) await channel.bulkDelete(botMsgs);
   } catch {}
 
-  const embed = new EmbedBuilder()
-    .setColor('#111214')
-    .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
-    .setDescription(
-      `${CONFIG.EMOJIS.LOCK} Para verificar sua conta, use os botões abaixo.\n` +
-      `Use o segundo botão para descobrir o motivo desta verificação.\n` +
-      `> **Caso ocorra algum problema, contate a administração.**`)
-    .setThumbnail('https://i.imgur.com/mXV0zMT.png')
-    .setImage(ASSETS.BANNER)
-    .setTimestamp();
+const embed = new EmbedBuilder()
+  .setColor('#111214')
+  .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
+  .setDescription(
+    `${CONFIG.EMOJIS.LOCK} Para verificar sua conta, use os botões abaixo.\n` +
+    `Use o segundo botão para descobrir o motivo desta verificação.\n\n` +
+    `────────────────────────────────────────────────────\n` +
+    `> **Caso ocorra algum problema, contate a administração.**\n` +
+    `────────────────────────────────────────────────────`
+  )
+  .setThumbnail('https://i.imgur.com/mXV0zMT.png')
+  .setImage(ASSETS.BANNER) // A imagem do banner fica ENTRE as linhas no embed
+  .setFooter({ text: " " }) // opcional, só para dar espaçamento
+  .setTimestamp();
+
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -227,3 +232,4 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(CONFIG.TOKEN);
+
