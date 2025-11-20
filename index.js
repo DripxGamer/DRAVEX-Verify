@@ -29,7 +29,8 @@ const CONFIG = {
     LOCK: '<:locked:1441125870453657620>',
     BOTAO: '<:bot:1439906396886925352>',
     ANUNCIO: '<:anuncio:1439906320991125575>',
-    VERIFICADO: '<:verificado:1439616052115017900>'
+    VERIFICADO: '<:verificado:1439616052115017900>',
+    MOD: '<:moderador:1439627925023359007>' // emoji acrescentado nos códigos
   }
 };
 
@@ -52,12 +53,10 @@ const CAPTCHA_MAP = {
   "JLQP32": "https://i.imgur.com/YDGoUC6.png"
 };
 
-// ---------- Assets ----------
+// ---------- Assets (usamos apenas Imgur — sem ficheiros locais) ----------
 const ASSETS = {
   LOGO: "https://i.imgur.com/vGha2WR.png",
-  BANNER_IMGUR: "https://i.imgur.com/6mtzQta.png",
-  // path local que enviaste (referenciado conforme pedido)
-  BANNER_LOCAL_PATH: "/mnt/data/25254221-c48f-4c2d-8349-a602386aa187.png"
+  BANNER_IMGUR: "https://i.imgur.com/6mtzQta.png"
 };
 
 // ---------- Estado temporário ----------
@@ -74,30 +73,33 @@ function buildOptions(correct, allCodes, n = 5) {
   return shuffle([correct, ...chosen]);
 }
 
-// ---------- Função: enviar painel de verificação ----------
+// ---------- Função: enviar painel de verificação (não apaga painel existente) ----------
 async function enviarMensagemVerificacao(channel) {
-  // tenta limpar mensagens antigas do bot
   try {
-    const fetched = await channel.messages.fetch({ limit: 20 });
-    const botMsgs = fetched.filter(m => m.author && m.author.id === client.user.id);
-    if (botMsgs.size > 0) {
-      await channel.bulkDelete(botMsgs).catch(() => {});
+    // verifica se já existe um painel do bot com título "VERIFICAÇÃO" (evita duplicados e apagar)
+    const messages = await channel.messages.fetch({ limit: 50 });
+    const existing = messages.find(m =>
+      m.author && m.author.id === client.user.id &&
+      m.embeds && m.embeds[0] && typeof m.embeds[0].title === 'string' &&
+      m.embeds[0].title.toUpperCase().includes('VERIFICAÇÃO')
+    );
+
+    if (existing) {
+      console.log('Painel já existe no canal — não vou enviar outro.');
+      return;
     }
   } catch (err) {
-    // não bloqueia; continua
-    console.log("Aviso limpeza mensagens:", err.message || err);
+    console.log('Aviso: não consegui verificar existência do painel (continuando):', err.message || err);
+    // não bloqueia; continua para enviar painel
   }
 
   const embedPrincipal = new EmbedBuilder()
     .setColor('#111214')
     .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
     .setDescription('Para verificar sua conta, clique em **Verificar-se** abaixo.\nUse o segundo botão para ver o motivo desta verificação.')
+    .setImage(ASSETS.BANNER_IMGUR)
     .setFooter({ text: 'Caso ocorra algum problema, contate a administração.' })
     .setTimestamp();
-
-  // se o ficheiro local existir no deploy, alguns hosts o vão disponibilizar, caso contrário usamos Imgur
-  // aqui enviamos a imagem via URL (Imgur) — se o host suportar ficheiro local, troca para files.
-  embedPrincipal.setImage(ASSETS.BANNER_IMGUR);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -116,6 +118,8 @@ async function enviarMensagemVerificacao(channel) {
     embeds: [embedPrincipal],
     components: [row]
   });
+
+  console.log('Painel enviado.');
 }
 
 // ---------- Evento: clientReady (usamos clientReady para evitar warning futuro) ----------
@@ -129,7 +133,6 @@ client.once('clientReady', async () => {
       return;
     }
     await enviarMensagemVerificacao(channel);
-    console.log('✅ Painel enviado automaticamente.');
   } catch (err) {
     console.error('Erro ao enviar painel ao iniciar:', err);
   }
@@ -148,6 +151,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           'Ela ajuda a proteger nosso servidor contra bots e selfbots maliciosos que enviam mensagens indesejadas ou tentam divulgar conteúdos no privado de nossos membros. Mantemos o servidor seguro e agradável.'
         )
         .setFooter({ text: 'Só você pode ver esta mensagem • Ignorar mensagem' });
+
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
@@ -167,10 +171,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
         .setImage(imageUrl)
         .setFooter({ text: 'Selecione o texto que aparece na imagem.' });
 
+      // adiciona o emoji de moderador nas labels (como na tua screenshot)
       const select = new StringSelectMenuBuilder()
         .setCustomId(`captcha_select_${interaction.user.id}`)
         .setPlaceholder('Selecione o texto que é exibido na imagem.')
-        .addOptions(options.map(o => ({ label: o, value: o })));
+        .addOptions(options.map(o => ({
+          label: `${CONFIG.EMOJIS.MOD} ${o}`,
+          value: o
+        })));
 
       const row = new ActionRowBuilder().addComponents(select);
 
@@ -202,7 +210,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           const role = interaction.guild.roles.cache.get(CONFIG.VERIFIED_ROLE_ID);
           if (!role) return interaction.update({ content: '❌ Erro: cargo de verificação não encontrado.', embeds: [], components: [] });
 
-          await interaction.member.roles.add(role).catch(err => { throw err; });
+          await interaction.member.roles.add(role);
 
           activeCaptchas.delete(interaction.user.id);
 
