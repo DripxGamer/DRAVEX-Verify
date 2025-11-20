@@ -84,15 +84,25 @@ const embed = new EmbedBuilder()
   .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
   .setDescription(
     `${CONFIG.EMOJIS.LOCK} Para verificar sua conta, use os botões abaixo.\n` +
-    `Use o segundo botão para descobrir o motivo desta verificação.\n\n` +
-    `────────────────────────────────────────────────────\n` +
-    `> **Caso ocorra algum problema, contate a administração.**\n` +
-    `────────────────────────────────────────────────────`
+    `Use o segundo botão para descobrir o motivo desta verificação.\n`
   )
   .setThumbnail('https://i.imgur.com/mXV0zMT.png')
-  .setImage(ASSETS.BANNER) // A imagem do banner fica ENTRE as linhas no embed
-  .setFooter({ text: " " }) // opcional, só para dar espaçamento
+
+  // 🔹 Linha separadora
+  .addFields({ name: "\u200b", value: "\u200b" })
+
+  // 🔹 Texto central
+  .addFields({
+    name: " ",
+    value: `> **Caso ocorra algum problema, contate a administração.**`
+  })
+
+  // 🔹 Outra linha separadora
+  .addFields({ name: "\u200b", value: "\u200b" })
+
+  .setImage(ASSETS.BANNER)
   .setTimestamp();
+
 
 
   const row = new ActionRowBuilder().addComponents(
@@ -232,4 +242,5 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(CONFIG.TOKEN);
+
 
