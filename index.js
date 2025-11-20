@@ -26,7 +26,8 @@ const CONFIG = {
   VERIFIED_ROLE_ID: process.env.VERIFIED_ROLE_ID,
 
   EMOJIS: {
-    MEMBER: { name: "member", id: "1439630214811484272" }, // 👈 AQUI O EMOJI DO SELECT
+    MEMBER: { name: "member", id: "1439630214811484272" }, 
+    MOD: "<:moderador:1439627925023359007>", // 👈 Emoji para “já tens o cargo”
     LOCK: '<:locked:1441125870453657620>',
     BOTAO: '<:bot:1439906396886925352>',
     ANUNCIO: '<:anuncio:1439906320991125575>',
@@ -119,11 +120,24 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const embed = new EmbedBuilder()
           .setColor('#2b2d31')
           .setTitle(`${CONFIG.EMOJIS.ANUNCIO} Por que a verificação é necessária?`)
-          .setDescription("Protege o servidor contra bots e spam.")
+          .setDescription("Protege o servidor contra bots e spam.");
         return interaction.reply({ embeds: [embed], ephemeral: true });
       }
 
       if (interaction.customId === "verificar") {
+
+        // ⚠️ ANTES DE CRIAR CAPTCHA: verificar se já tem o cargo
+        const role = interaction.guild.roles.cache.get(CONFIG.VERIFIED_ROLE_ID);
+
+        if (interaction.member.roles.cache.has(role.id)) {
+          return interaction.reply({
+            content: `${CONFIG.EMOJIS.MOD} | **Já tens o cargo verificado!**  
+Parece que alguém aqui já passou no teste 😎`,
+            ephemeral: true
+          });
+        }
+
+        // CAPTCHA normal
         const codes = Object.keys(CAPTCHA_MAP);
         const correct = codes[Math.floor(Math.random() * codes.length)];
         const options = buildOptions(correct, codes, 5);
@@ -143,7 +157,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             options.map(code => ({
               label: code,
               value: code,
-              emoji: CONFIG.EMOJIS.MEMBER // 👈 EMOJI CORRETO AQUI
+              emoji: CONFIG.EMOJIS.MEMBER
             }))
           );
 
@@ -180,6 +194,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!role)
         return interaction.update({ content: "Cargo não encontrado.", embeds: [], components: [] });
 
+      // 🚀 Dar o cargo
       await interaction.member.roles.add(role);
       activeCaptchas.delete(userId);
 
