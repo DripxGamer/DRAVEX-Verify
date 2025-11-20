@@ -1,4 +1,4 @@
-// index.js - Railway ready (CommonJS)
+// index.js - Single-file, Railway-ready verification bot (CommonJS)
 const {
   Client,
   GatewayIntentBits,
@@ -19,10 +19,11 @@ const client = new Client({
   ]
 });
 
-// ---------- CONFIG (via Railway env vars) ----------
+// ---------- CONFIG ----------
 const CONFIG = {
   TOKEN: process.env.TOKEN,
-  VERIFICATION_CHANNEL_ID: process.env.VERIFICATION_CHANNEL_ID,
+  // fallback para o canal que o utilizador forneceu
+  VERIFICATION_CHANNEL_ID: process.env.VERIFICATION_CHANNEL_ID || '1439960273027862528',
   VERIFIED_ROLE_ID: process.env.VERIFIED_ROLE_ID,
   EMOJIS: {
     LOCK: '<:locked:1441125870453657620>',
@@ -32,7 +33,7 @@ const CONFIG = {
   }
 };
 
-// ---------- Captchas (código -> imagem URL) ----------
+// ---------- Captcha images map (code -> image URL) ----------
 const CAPTCHA_MAP = {
   "FSQPQP": "https://i.imgur.com/dLQ9Rv0.png",
   "SBF2HT": "https://i.imgur.com/Zsyj01b.png",
@@ -51,34 +52,31 @@ const CAPTCHA_MAP = {
   "JLQP32": "https://i.imgur.com/YDGoUC6.png"
 };
 
-// ---------- Assets principais (tu enviou estes links) ----------
+// ---------- Assets ----------
 const ASSETS = {
-  LOGO: "https://i.imgur.com/vGha2WR.png",        // Logo que pediste
-  BANNER_IMGUR: "https://i.imgur.com/6mtzQta.png", // Banner Imgur (fallback)
-  // local banner path (developer instruction requested usage of local uploaded file path)
+  LOGO: "https://i.imgur.com/vGha2WR.png",
+  BANNER_IMGUR: "https://i.imgur.com/6mtzQta.png",
+  // path local que enviaste (referenciado conforme pedido)
   BANNER_LOCAL_PATH: "/mnt/data/25254221-c48f-4c2d-8349-a602386aa187.png"
 };
 
-// ---------- Estado temporário por utilizador ----------
-const activeCaptchas = new Map(); // userId -> { code, timestamp }
+// ---------- Estado temporário ----------
+const activeCaptchas = new Map(); // userId -> { code, ts }
 
 // ---------- Utils ----------
 function shuffle(arr) {
   return arr.sort(() => Math.random() - 0.5);
 }
-
-// retorna N opções falsas + o correto, embaralhado
 function buildOptions(correct, allCodes, n = 5) {
   const pool = allCodes.filter(c => c !== correct);
   shuffle(pool);
   const chosen = pool.slice(0, n - 1);
-  const opts = shuffle([correct, ...chosen]);
-  return opts;
+  return shuffle([correct, ...chosen]);
 }
 
-// ---------- Função que envia o painel EXACTO ao iniciar ----------
+// ---------- Função: enviar painel de verificação ----------
 async function enviarMensagemVerificacao(channel) {
-  // tenta limpar mensagens antigas do bot no canal
+  // tenta limpar mensagens antigas do bot
   try {
     const fetched = await channel.messages.fetch({ limit: 20 });
     const botMsgs = fetched.filter(m => m.author && m.author.id === client.user.id);
@@ -86,7 +84,8 @@ async function enviarMensagemVerificacao(channel) {
       await channel.bulkDelete(botMsgs).catch(() => {});
     }
   } catch (err) {
-    console.log("Aviso: não foi possível apagar mensagens antigas:", err.message || err);
+    // não bloqueia; continua
+    console.log("Aviso limpeza mensagens:", err.message || err);
   }
 
   const embedPrincipal = new EmbedBuilder()
@@ -94,9 +93,11 @@ async function enviarMensagemVerificacao(channel) {
     .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
     .setDescription('Para verificar sua conta, clique em **Verificar-se** abaixo.\nUse o segundo botão para ver o motivo desta verificação.')
     .setFooter({ text: 'Caso ocorra algum problema, contate a administração.' })
-    // aqui usamos a imagem local como attachment (developer request)
-    .setImage('attachment://banner.png')
     .setTimestamp();
+
+  // se o ficheiro local existir no deploy, alguns hosts o vão disponibilizar, caso contrário usamos Imgur
+  // aqui enviamos a imagem via URL (Imgur) — se o host suportar ficheiro local, troca para files.
+  embedPrincipal.setImage(ASSETS.BANNER_IMGUR);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -111,25 +112,22 @@ async function enviarMensagemVerificacao(channel) {
       .setStyle(ButtonStyle.Secondary)
   );
 
-  // envia com o ficheiro local (path que está disponível no worker)
   await channel.send({
     embeds: [embedPrincipal],
-    files: [
-      // local path que mencionámos anteriormente — o sistema de deploy tratará este ficheiro.
-      { attachment: ASSETS.BANNER_LOCAL_PATH, name: "banner.png" }
-    ],
     components: [row]
   });
 }
 
-// ---------- Evento: cliente pronto (clientReady conforme tu pediste) ----------
+// ---------- Evento: clientReady (usamos clientReady para evitar warning futuro) ----------
 client.once('clientReady', async () => {
   console.log(`✅ Bot online como ${client.user.tag}`);
 
-  // busca canal de verificação a partir da env
   try {
     const channel = await client.channels.fetch(CONFIG.VERIFICATION_CHANNEL_ID);
-    if (!channel) return console.log('❌ Canal de verificação inválido. Define VERIFICATION_CHANNEL_ID nas env vars.');
+    if (!channel) {
+      console.log('❌ Canal de verificação inválido. VERIFICATION_CHANNEL_ID está bem definido?');
+      return;
+    }
     await enviarMensagemVerificacao(channel);
     console.log('✅ Painel enviado automaticamente.');
   } catch (err) {
@@ -137,38 +135,30 @@ client.once('clientReady', async () => {
   }
 });
 
-// ---------- Interações (botões + select) ----------
+// ---------- Interações: botões + select ----------
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    // BOTÃO: por que motivo / info
+    // botão "Por que a verificação é necessária?"
     if (interaction.isButton() && interaction.customId === 'info_verificacao') {
-      await interaction.reply({
-        ephemeral: true,
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#2b2d31')
-            .setTitle(`${CONFIG.EMOJIS.ANUNCIO} Por que a verificação é necessária?`)
-            .setDescription(
-              '**A verificação de captcha é uma medida de segurança essencial.**\n\n' +
-              'Ela ajuda a proteger nosso servidor contra bots e selfbots maliciosos que enviam mensagens indesejadas ou tentam divulgar conteúdos no privado de nossos membros.'
-            )
-            .setFooter({ text: 'Só você pode ver esta mensagem • Ignorar mensagem' })
-        ]
-      });
-      return;
+      const embed = new EmbedBuilder()
+        .setColor('#2b2d31')
+        .setTitle(`${CONFIG.EMOJIS.ANUNCIO} Por que a verificação é necessária?`)
+        .setDescription(
+          '**A verificação de captcha é uma medida de segurança essencial.**\n\n' +
+          'Ela ajuda a proteger nosso servidor contra bots e selfbots maliciosos que enviam mensagens indesejadas ou tentam divulgar conteúdos no privado de nossos membros. Mantemos o servidor seguro e agradável.'
+        )
+        .setFooter({ text: 'Só você pode ver esta mensagem • Ignorar mensagem' });
+      return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    // BOTÃO: iniciar verificação (envia a imagem do captcha + select)
+    // botão "Verificar-se" — envia a imagem do captcha + select (ephemeral)
     if (interaction.isButton() && interaction.customId === 'verificar') {
-      // seleciona aleatoriamente 1 codigo correto
       const allCodes = Object.keys(CAPTCHA_MAP);
       const correct = allCodes[Math.floor(Math.random() * allCodes.length)];
       const imageUrl = CAPTCHA_MAP[correct];
+      const options = buildOptions(correct, allCodes, 5);
 
-      // constrói 5 opções (1 correta + 4 falsas)
-      const opts = buildOptions(correct, allCodes, 5);
-
-      // guarda estado temporário (30s TTL)
+      // guarda estado temporário (timestamp para TTL de 45s)
       activeCaptchas.set(interaction.user.id, { code: correct, ts: Date.now() });
 
       const embed = new EmbedBuilder()
@@ -177,49 +167,42 @@ client.on(Events.InteractionCreate, async (interaction) => {
         .setImage(imageUrl)
         .setFooter({ text: 'Selecione o texto que aparece na imagem.' });
 
-      const menu = new StringSelectMenuBuilder()
+      const select = new StringSelectMenuBuilder()
         .setCustomId(`captcha_select_${interaction.user.id}`)
         .setPlaceholder('Selecione o texto que é exibido na imagem.')
-        .addOptions(
-          opts.map(o => ({ label: o, value: o }))
-        );
+        .addOptions(options.map(o => ({ label: o, value: o })));
 
-      const row = new ActionRowBuilder().addComponents(menu);
+      const row = new ActionRowBuilder().addComponents(select);
 
-      // respondemos de forma ephemeral (só o user vê)
-      await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
-      return;
+      return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
     }
 
-    // SELECT: usuário escolheu uma opção
+    // select menu resposta
     if (interaction.isStringSelectMenu() && interaction.customId.startsWith('captcha_select_')) {
-      const userIdFromCustomId = interaction.customId.split('_').slice(-1)[0];
-      // impedir users diferentes de responder à select de outro user
-      if (interaction.user.id !== userIdFromCustomId) {
-        return interaction.reply({ content: 'Esta seleção não é para ti.', ephemeral: true });
+      const expectedUserId = interaction.customId.split('captcha_select_')[1];
+      if (interaction.user.id !== expectedUserId) {
+        return interaction.reply({ content: 'Esta verificação não é sua.', ephemeral: true });
       }
 
-      const selected = interaction.values[0];
       const record = activeCaptchas.get(interaction.user.id);
-
       if (!record) {
         return interaction.update({ content: '❌ Sessão expirada. Clica em Verificar-se novamente.', embeds: [], components: [] });
       }
 
-      // TTL check (30s)
-      if (Date.now() - record.ts > 30_000) {
+      // TTL 45s
+      if (Date.now() - record.ts > 45_000) {
         activeCaptchas.delete(interaction.user.id);
         return interaction.update({ content: '❌ Sessão expirada. Clica em Verificar-se novamente.', embeds: [], components: [] });
       }
 
+      const selected = interaction.values[0];
       if (selected === record.code) {
-        // tenta adicionar cargo
+        // sucesso — tenta adicionar cargo
         try {
           const role = interaction.guild.roles.cache.get(CONFIG.VERIFIED_ROLE_ID);
-          if (!role) {
-            return interaction.update({ content: '❌ Erro: cargo de verificação não encontrado.', embeds: [], components: [] });
-          }
-          await interaction.member.roles.add(role);
+          if (!role) return interaction.update({ content: '❌ Erro: cargo de verificação não encontrado.', embeds: [], components: [] });
+
+          await interaction.member.roles.add(role).catch(err => { throw err; });
 
           activeCaptchas.delete(interaction.user.id);
 
@@ -245,7 +228,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.reply({ content: '❌ Ocorreu um erro. Tente novamente.', ephemeral: true });
       }
     } catch (e) {
-      console.error('Erro a enviar erro de interação:', e);
+      console.error('Erro ao enviar fallback de erro:', e);
     }
   }
 });
