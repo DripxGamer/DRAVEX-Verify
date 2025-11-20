@@ -22,18 +22,19 @@ const client = new Client({
 // ---------- CONFIG ----------
 const CONFIG = {
   TOKEN: process.env.TOKEN,
-  VERIFICATION_CHANNEL_ID: process.env.VERIFICATION_CHANNEL_ID || '1439960273027862528',
+  VERIFICATION_CHANNEL_ID: process.env.VERIFICATION_CHANNEL_ID,
   VERIFIED_ROLE_ID: process.env.VERIFIED_ROLE_ID,
+
   EMOJIS: {
+    MEMBER: { name: "member", id: "1439630214811484272" }, // 👈 AQUI O EMOJI DO SELECT
     LOCK: '<:locked:1441125870453657620>',
     BOTAO: '<:bot:1439906396886925352>',
     ANUNCIO: '<:anuncio:1439906320991125575>',
-    VERIFICADO: '<:verificado:1439616052115017900>',
-    MEMBER: '<:member:1439630214811484272>' // <<--- ADICIONADO AQUI
+    VERIFICADO: '<:verificado:1439616052115017900>'
   }
 };
 
-// ---------- Captcha images map ----------
+// ---------- CAPTCHA ----------
 const CAPTCHA_MAP = {
   "FSQPQP": "https://i.imgur.com/dLQ9Rv0.png",
   "SBF2HT": "https://i.imgur.com/Zsyj01b.png",
@@ -52,10 +53,13 @@ const CAPTCHA_MAP = {
   "JLQP32": "https://i.imgur.com/YDGoUC6.png"
 };
 
-// ---------- Estado temporário ----------
+const ASSETS = {
+  LOGO: "https://i.imgur.com/vGha2WR.png",
+  BANNER: "https://i.imgur.com/6mtzQta.png"
+};
+
 const activeCaptchas = new Map();
 
-// ---------- Utils ----------
 function shuffle(arr) {
   return arr.sort(() => Math.random() - 0.5);
 }
@@ -66,23 +70,20 @@ function buildOptions(correct, allCodes, n = 5) {
   return shuffle([correct, ...chosen]);
 }
 
-// ---------- Painel de verificação ----------
 async function enviarMensagemVerificacao(channel) {
+
   try {
     const fetched = await channel.messages.fetch({ limit: 20 });
-    const botMsgs = fetched.filter(m => m.author && m.author.id === client.user.id);
-    if (botMsgs.size > 0) {
-      await channel.bulkDelete(botMsgs).catch(() => {});
-    }
+    const botMsgs = fetched.filter(m => m.author.id === client.user.id);
+    if (botMsgs.size) await channel.bulkDelete(botMsgs);
   } catch {}
 
-  const embedPrincipal = new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor('#111214')
     .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
-    .setDescription('Para verificar sua conta, clique em **Verificar-se** abaixo.\nUse o segundo botão para ver o motivo desta verificação.')
+    .setDescription('Clique em **Verificar-se** para iniciar a verificação.')
+    .setImage(ASSETS.BANNER)
     .setTimestamp();
-
-  embedPrincipal.setImage("https://i.imgur.com/6mtzQta.png");
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -97,134 +98,99 @@ async function enviarMensagemVerificacao(channel) {
       .setStyle(ButtonStyle.Secondary)
   );
 
-  await channel.send({
-    embeds: [embedPrincipal],
-    components: [row]
-  });
+  await channel.send({ embeds: [embed], components: [row] });
 }
 
-// ---------- Ready ----------
-client.once('clientReady', async () => {
+client.once("ready", async () => {
   console.log(`✅ Bot online como ${client.user.tag}`);
-
   try {
     const channel = await client.channels.fetch(CONFIG.VERIFICATION_CHANNEL_ID);
-    if (!channel) return;
-    await enviarMensagemVerificacao(channel);
+    if (channel) await enviarMensagemVerificacao(channel);
   } catch (err) {
-    console.error(err);
+    console.log("Erro ao enviar painel:", err);
   }
 });
 
-// ---------- Interações ----------
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    // Botão INFO
-    if (interaction.isButton() && interaction.customId === 'info_verificacao') {
-      return interaction.reply({
-        ephemeral: true,
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#2b2d31')
-            .setTitle(`${CONFIG.EMOJIS.ANUNCIO} Por que a verificação é necessária?`)
-            .setDescription(
-              '**A verificação evita bots e selfbots.**\n' +
-              'Assim mantemos o servidor seguro contra spam no privado e anúncios.'
-            )
-        ]
-      });
-    }
+    if (interaction.isButton()) {
 
-    // Botão VERIFICAR-SE
-    if (interaction.isButton() && interaction.customId === 'verificar') {
-      const allCodes = Object.keys(CAPTCHA_MAP);
-      const correct = allCodes[Math.floor(Math.random() * allCodes.length)];
-      const imageUrl = CAPTCHA_MAP[correct];
-      const options = buildOptions(correct, allCodes, 5);
-
-      activeCaptchas.set(interaction.user.id, { code: correct, ts: Date.now() });
-
-      const embed = new EmbedBuilder()
-        .setColor('#111214')
-        .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
-        .setImage(imageUrl)
-        .setFooter({ text: 'Selecione o texto que aparece na imagem.' });
-
-      // ⬇️ AQUI O EMOJI MEMBER FOI ADICIONADO AO SELECT
-      const select = new StringSelectMenuBuilder()
-        .setCustomId(`captcha_select_${interaction.user.id}`)
-        .setPlaceholder('Selecione o texto que é exibido na imagem.')
-        .addOptions(
-          options.map(o => ({
-            label: o,
-            value: o,
-            emoji: { id: "1439630214811484272", name: "member" } // <<---- AQUI
-          }))
-        );
-
-      return interaction.reply({
-        ephemeral: true,
-        embeds: [embed],
-        components: [new ActionRowBuilder().addComponents(select)]
-      });
-    }
-
-    // Select Menu
-    if (interaction.isStringSelectMenu() && interaction.customId.startsWith('captcha_select_')) {
-      const record = activeCaptchas.get(interaction.user.id);
-
-      if (!record) {
-        return interaction.update({
-          content: '❌ Sessão expirada. Clica em Verificar-se novamente.',
-          embeds: [],
-          components: []
-        });
+      if (interaction.customId === "info_verificacao") {
+        const embed = new EmbedBuilder()
+          .setColor('#2b2d31')
+          .setTitle(`${CONFIG.EMOJIS.ANUNCIO} Por que a verificação é necessária?`)
+          .setDescription("Protege o servidor contra bots e spam.")
+        return interaction.reply({ embeds: [embed], ephemeral: true });
       }
+
+      if (interaction.customId === "verificar") {
+        const codes = Object.keys(CAPTCHA_MAP);
+        const correct = codes[Math.floor(Math.random() * codes.length)];
+        const options = buildOptions(correct, codes, 5);
+
+        activeCaptchas.set(interaction.user.id, { code: correct, ts: Date.now() });
+
+        const embed = new EmbedBuilder()
+          .setColor('#111214')
+          .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
+          .setImage(CAPTCHA_MAP[correct])
+          .setFooter({ text: 'Selecione o texto exibido na imagem.' });
+
+        const select = new StringSelectMenuBuilder()
+          .setCustomId(`captcha_select_${interaction.user.id}`)
+          .setPlaceholder('Selecione o texto exibido')
+          .addOptions(
+            options.map(code => ({
+              label: code,
+              value: code,
+              emoji: CONFIG.EMOJIS.MEMBER // 👈 EMOJI CORRETO AQUI
+            }))
+          );
+
+        const row = new ActionRowBuilder().addComponents(select);
+
+        return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+      }
+    }
+
+    if (interaction.isStringSelectMenu()) {
+      if (!interaction.customId.startsWith("captcha_select_")) return;
+
+      const userId = interaction.customId.split("captcha_select_")[1];
+      if (interaction.user.id !== userId)
+        return interaction.reply({ content: "Esta verificação não é sua.", ephemeral: true });
+
+      const record = activeCaptchas.get(userId);
+      if (!record)
+        return interaction.update({ content: "Sessão expirada.", embeds: [], components: [] });
 
       if (Date.now() - record.ts > 45000) {
-        activeCaptchas.delete(interaction.user.id);
-        return interaction.update({
-          content: '❌ Sessão expirada.',
-          embeds: [],
-          components: []
-        });
+        activeCaptchas.delete(userId);
+        return interaction.update({ content: "Sessão expirada.", embeds: [], components: [] });
       }
 
-      const selected = interaction.values[0];
+      const chosen = interaction.values[0];
 
-      if (selected === record.code) {
-        activeCaptchas.delete(interaction.user.id);
-
-        try {
-          const role = interaction.guild.roles.cache.get(CONFIG.VERIFIED_ROLE_ID);
-          await interaction.member.roles.add(role);
-
-          return interaction.update({
-            embeds: [
-              new EmbedBuilder()
-                .setColor('#57F287')
-                .setTitle(`${CONFIG.EMOJIS.VERIFICADO} Verificação concluída com sucesso!`)
-            ],
-            components: []
-          });
-        } catch {
-          return interaction.update({
-            content: '❌ Erro ao adicionar cargo.',
-            embeds: [],
-            components: []
-          });
-        }
-      } else {
-        activeCaptchas.delete(interaction.user.id);
-        return interaction.update({
-          content: '❌ Código incorreto!',
-          embeds: [],
-          components: []
-        });
+      if (chosen !== record.code) {
+        activeCaptchas.delete(userId);
+        return interaction.update({ content: "❌ Código incorreto!", embeds: [], components: [] });
       }
+
+      const role = interaction.guild.roles.cache.get(CONFIG.VERIFIED_ROLE_ID);
+      if (!role)
+        return interaction.update({ content: "Cargo não encontrado.", embeds: [], components: [] });
+
+      await interaction.member.roles.add(role);
+      activeCaptchas.delete(userId);
+
+      const success = new EmbedBuilder()
+        .setColor('#57F287')
+        .setTitle(`${CONFIG.EMOJIS.VERIFICADO} Verificado com sucesso!`);
+
+      return interaction.update({ embeds: [success], components: [] });
     }
   } catch (err) {
-    console.error(err);
+    console.log("Erro:", err);
   }
 });
 
