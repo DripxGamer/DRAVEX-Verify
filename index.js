@@ -26,12 +26,12 @@ const CONFIG = {
   VERIFIED_ROLE_ID: process.env.VERIFIED_ROLE_ID,
 
   EMOJIS: {
-    MEMBER: { name: "member", id: "1439630214811484272" }, 
-    MOD: "<:moderador:1439627925023359007>", // 👈 Emoji para “já tens o cargo”
+    MEMBER: { name: "member", id: "1439630214811484272" },
     LOCK: '<:locked:1441125870453657620>',
     BOTAO: '<:bot:1439906396886925352>',
     ANUNCIO: '<:anuncio:1439906320991125575>',
-    VERIFICADO: '<:verificado:1439616052115017900>'
+    VERIFICADO: '<:verificado:1439616052115017900>',
+    MOD: '<:moderador:1439627925023359007>'
   }
 };
 
@@ -83,6 +83,7 @@ async function enviarMensagemVerificacao(channel) {
     .setColor('#111214')
     .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
     .setDescription('Clique em **Verificar-se** para iniciar a verificação.')
+    .setThumbnail('https://i.imgur.com/mXV0zMT.png')   // 👈 ADICIONADO — LOGO NO CANTO SUPERIOR DIREITO
     .setImage(ASSETS.BANNER)
     .setTimestamp();
 
@@ -120,24 +121,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const embed = new EmbedBuilder()
           .setColor('#2b2d31')
           .setTitle(`${CONFIG.EMOJIS.ANUNCIO} Por que a verificação é necessária?`)
-          .setDescription("Protege o servidor contra bots e spam.");
+          .setDescription("Protege o servidor contra bots e spam.")
         return interaction.reply({ embeds: [embed], ephemeral: true });
       }
 
       if (interaction.customId === "verificar") {
-
-        // ⚠️ ANTES DE CRIAR CAPTCHA: verificar se já tem o cargo
-        const role = interaction.guild.roles.cache.get(CONFIG.VERIFIED_ROLE_ID);
-
-        if (interaction.member.roles.cache.has(role.id)) {
-          return interaction.reply({
-            content: `${CONFIG.EMOJIS.MOD} | **Já tens o cargo verificado!**  
-Parece que alguém aqui já passou no teste 😎`,
-            ephemeral: true
-          });
-        }
-
-        // CAPTCHA normal
         const codes = Object.keys(CAPTCHA_MAP);
         const correct = codes[Math.floor(Math.random() * codes.length)];
         const options = buildOptions(correct, codes, 5);
@@ -194,7 +182,19 @@ Parece que alguém aqui já passou no teste 😎`,
       if (!role)
         return interaction.update({ content: "Cargo não encontrado.", embeds: [], components: [] });
 
-      // 🚀 Dar o cargo
+      // Já tem cargo
+      if (interaction.member.roles.cache.has(role.id)) {
+        return interaction.update({
+          embeds: [
+            new EmbedBuilder()
+              .setColor('#2b2d31')
+              .setDescription(`${CONFIG.EMOJIS.MOD} Já tens o cargo de verificado!`)
+          ],
+          components: []
+        });
+      }
+
+      // Adicionar cargo
       await interaction.member.roles.add(role);
       activeCaptchas.delete(userId);
 
