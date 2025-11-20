@@ -1,6 +1,4 @@
 import { Client, GatewayIntentBits, Partials, ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
-import dotenv from "dotenv";
-dotenv.config();
 
 const client = new Client({
     intents: [
@@ -135,3 +133,4 @@ function shuffle(array) {
 }
 
 client.login(process.env.TOKEN);
+
