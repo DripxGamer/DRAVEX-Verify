@@ -4,9 +4,8 @@ const {
     EmbedBuilder,
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonStyle,
     StringSelectMenuBuilder,
-    PermissionFlagsBits
+    ButtonStyle
 } = require('discord.js');
 
 const client = new Client({
@@ -18,197 +17,185 @@ const client = new Client({
     ]
 });
 
-// Configurações via Railway Environment
+// Config
 const CONFIG = {
     TOKEN: process.env.TOKEN,
     VERIFICATION_CHANNEL_ID: process.env.VERIFICATION_CHANNEL_ID,
     VERIFIED_ROLE_ID: process.env.VERIFIED_ROLE_ID,
     EMOJIS: {
-        LOCKED: '<:locked:1441125870453657620>',
-        VERIFIED: '<:verificado:1439616052115017900>',
-        DEVELOPER: '<:developer:1439905568100843580>'
+        LOCK: '<:locked:1441125870453657620>',
+        BOTAO: '<:bot:1439906396886925352>',
+        ANUNCIO: '<:anuncio:1439906320991125575>',
+        VERIFICADO: '<:verificado:1439616052115017900>'
     }
 };
 
-// Captchas ativos
-const activeCaptchas = new Map();
+// CAPTCHA ativos
+const captchas = new Map();
 
-// Gerador de CAPTCHA
-function generateCaptcha() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+// Gera código
+function gerarCaptcha() {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let code = "";
+    for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    return code;
 }
 
-// Criar opções falsas
-function generateFakeOptions(correctCode) {
-    const options = [correctCode];
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+// Gera opções fake
+function gerarOpcoes(code) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const arr = [code];
 
-    while (options.length < 5) {
-        const code = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-        if (!options.includes(code)) options.push(code);
+    while (arr.length < 5) {
+        let fake = "";
+        for (let i = 0; i < 6; i++) fake += chars[Math.floor(Math.random() * chars.length)];
+        if (!arr.includes(fake)) arr.push(fake);
     }
 
-    return options.sort(() => Math.random() - 0.5);
+    return arr.sort(() => Math.random() - 0.5);
 }
 
-// Painel inicial
-async function enviarMensagemVerificacao(channel) {
+// Enviar PAINEL automaticamente ao iniciar
+client.once("ready", async () => {
+    console.log(`✅ Bot iniciado como ${client.user.tag}`);
 
-    // Limpar mensagens antigas
+    const canal = await client.channels.fetch(CONFIG.VERIFICATION_CHANNEL_ID);
+    if (!canal) return console.log("❌ Canal de verificação inválido.");
+
+    // Apaga mensagens antigas
     try {
-        const messages = await channel.messages.fetch({ limit: 20 });
-        const botMsgs = messages.filter(m => m.author.id === client.user.id);
-        if (botMsgs.size > 0) await channel.bulkDelete(botMsgs);
+        const msgs = await canal.messages.fetch({ limit: 20 });
+        const botMsgs = msgs.filter(m => m.author.id === client.user.id);
+        canal.bulkDelete(botMsgs).catch(() => {});
     } catch {}
 
-    const embedPrincipal = new EmbedBuilder()
-        .setColor('#3498db')
-        .setTitle(`${CONFIG.EMOJIS.LOCKED} VERIFICAÇÃO`)
-        .setDescription('Para verificar sua conta, use os botões abaixo.\nUse o segundo botão para descobrir o motivo desta verificação.')
-        .setFooter({ text: 'Caso ocorra algum problema, contate a administração.' })
-        .setTimestamp();
+    // Embed estilo imagem
+    const embed = new EmbedBuilder()
+        .setColor("#2b2d31")
+        .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
+        .setDescription(`Para verificar sua conta, use os botões abaixo.\nUse o segundo botão para descobrir o motivo desta verificação.`)
+        .setImage("attachment://banner.png")
+        .setFooter({ text: "Caso ocorra algum problema, contate a administração." });
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId('verificar')
-            .setLabel('Verificar-se')
-            .setEmoji(CONFIG.EMOJIS.VERIFIED)
+            .setCustomId("verificar")
+            .setLabel("Verificar-se")
+            .setEmoji(CONFIG.EMOJIS.BOTAO)
             .setStyle(ButtonStyle.Primary),
-
         new ButtonBuilder()
-            .setCustomId('info_verificacao')
-            .setEmoji(CONFIG.EMOJIS.DEVELOPER)
+            .setCustomId("motivo")
+            .setEmoji(CONFIG.EMOJIS.ANUNCIO)
             .setStyle(ButtonStyle.Secondary)
     );
 
-    await channel.send({
-        embeds: [embedPrincipal],
+    // Envia com imagem igual à da screenshot
+    await canal.send({
+        embeds: [embed],
+        files: ["./banner.png"], // <- ESTA IMAGEM ESTÁ TE FALTANDO, JÁ VOU EXPLICAR
         components: [row]
     });
 
     console.log("✅ Painel enviado automaticamente!");
-}
-
-/* ⚠️ ESTE É O EVENTO CORRETO NO TEU DISCORD.JS:
-   "clientReady" e NÃO "ready" */
-client.on("clientReady", async () => {
-    console.log(`✅ Bot online como ${client.user.tag}`);
-
-    const channel = client.channels.cache.get(CONFIG.VERIFICATION_CHANNEL_ID);
-    if (!channel) return console.log("❌ ERRO: canal de verificação inválido!");
-
-    await enviarMensagemVerificacao(channel);
 });
 
-// 🎯 Interações
-client.on('interactionCreate', async interaction => {
+// Interações
+client.on("interactionCreate", async interaction => {
     if (!interaction.isButton() && !interaction.isStringSelectMenu()) return;
 
-    try {
-        // Botão verificar
-        if (interaction.customId === 'verificar') {
-            await interaction.deferReply({ ephemeral: true });
+    // MOTIVO
+    if (interaction.customId === "motivo") {
+        await interaction.reply({
+            ephemeral: true,
+            embeds: [
+                new EmbedBuilder()
+                    .setColor("#2b2d31")
+                    .setTitle(`${CONFIG.EMOJIS.ANUNCIO} Por que a verificação é necessária?`)
+                    .setDescription(
+                        "A verificação de captcha é uma medida de segurança essencial.\n\n" +
+                        "Ela ajuda a proteger nosso servidor contra bots e selfbots maliciosos " +
+                        "que enviam mensagens indesejadas ou tentam divulgar conteúdos no privado " +
+                        "de nossos membros.\n\n" +
+                        "Com essa verificação, garantimos que apenas pessoas reais tenham acesso, " +
+                        "mantendo o ambiente seguro e agradável para todos."
+                    )
+            ]
+        });
+    }
 
-            const member = interaction.member;
+    // VERIFICAR
+    if (interaction.customId === "verificar") {
+        const code = gerarCaptcha();
+        captchas.set(interaction.user.id, code);
 
-            if (member.roles.cache.has(CONFIG.VERIFIED_ROLE_ID)) {
-                return interaction.editReply({ content: '✅ Você já está verificado!' });
-            }
+        const opcoes = gerarOpcoes(code);
 
-            const captcha = generateCaptcha();
-            activeCaptchas.set(interaction.user.id, captcha);
+        const embed = new EmbedBuilder()
+            .setColor("#2b2d31")
+            .setImage("attachment://captcha.png")
+            .setFooter({ text: "Selecione o texto que é exibido na imagem." });
 
-            const embedCaptcha = new EmbedBuilder()
-                .setColor('#3498db')
-                .setTitle('VERIFICAÇÃO')
-                .setDescription(`\`\`\`\n${captcha}\n\`\`\``)
-                .setFooter({ text: 'Selecione o texto que é exibido na imagem.' });
+        const menu = new StringSelectMenuBuilder()
+            .setCustomId("escolher")
+            .setPlaceholder("Selecione o texto que é exibido na imagem.")
+            .addOptions(opcoes.map(o => ({ label: o, value: o })));
 
-            const options = generateFakeOptions(captcha);
+        await interaction.reply({
+            ephemeral: true,
+            embeds: [embed],
+            components: [new ActionRowBuilder().addComponents(menu)],
+            files: [{
+                attachment: Buffer.from(`
+██████╗ ███████╗███████╗███████╗██╗  ██╗███████╗██╗   ██╗ █████╗  ██████╗
+██╔══██╗██╔════╝██╔════╝██╔════╝██║ ██╔╝██╔════╝██║   ██║██╔══██╗██╔════╝
+██████╔╝█████╗  █████╗  █████╗  █████╔╝ █████╗  ██║   ██║███████║██║     
+██╔══██╗██╔══╝  ██╔══╝  ██╔══╝  ██╔═██╗ ██╔══╝  ██║   ██║██╔══██║██║     
+██║  ██║███████╗███████╗███████╗██║  ██╗███████╗╚██████╔╝██║  ██║╚██████╗
+╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝
 
-            const menu = new StringSelectMenuBuilder()
-                .setCustomId('captcha_select')
-                .setPlaceholder('Selecione o texto correto.')
-                .addOptions(
-                    options.map(o => ({
-                        label: o,
-                        value: o,
-                        emoji: '🔒'
-                    }))
-                );
+${code}
+                `),
+                name: "captcha.png"
+            }]
+        });
+    }
 
-            await interaction.editReply({
-                embeds: [embedCaptcha],
-                components: [new ActionRowBuilder().addComponents(menu)]
-            });
-        }
+    // CAPTCHA
+    if (interaction.customId === "escolher") {
+        const correto = captchas.get(interaction.user.id);
+        const escolhido = interaction.values[0];
 
-        // Botão motivo
-        if (interaction.customId === 'info_verificacao') {
-            await interaction.deferReply({ ephemeral: true });
+        if (!correto) return interaction.update({
+            ephemeral: true,
+            content: "❌ Sessão expirada. Clique novamente em **Verificar-se**.",
+            embeds: [],
+            components: []
+        });
 
-            const embedInfo = new EmbedBuilder()
-                .setColor('#3498db')
-                .setTitle(`${CONFIG.EMOJIS.DEVELOPER} Por que a verificação é necessária?`)
-                .setDescription('Para aumentar a segurança do servidor e prevenir bots e selfbots.')
-                .setFooter({ text: 'Só você pode ver esta mensagem • Ignorar mensagem' });
-
-            await interaction.editReply({ embeds: [embedInfo] });
-        }
-
-        // CAPTCHA
-        if (interaction.customId === 'captcha_select') {
-
-            await interaction.deferUpdate();
-
-            const answer = interaction.values[0];
-            const expected = activeCaptchas.get(interaction.user.id);
-
-            if (!expected) {
-                return interaction.editReply({
-                    content: '❌ Sessão expirada, tente novamente.',
-                    embeds: [],
-                    components: []
-                });
-            }
-
-            if (answer !== expected) {
-                activeCaptchas.delete(interaction.user.id);
-                return interaction.editReply({
-                    content: '❌ Código incorreto! Clique novamente em "Verificar-se".',
-                    embeds: [],
-                    components: []
-                });
-            }
-
-            const member = interaction.member;
-            const role = interaction.guild.roles.cache.get(CONFIG.VERIFIED_ROLE_ID);
-
-            if (!role) {
-                return interaction.editReply({
-                    content: '❌ Erro: cargo não encontrado!',
-                    components: []
-                });
-            }
-
-            await member.roles.add(role);
-
-            const success = new EmbedBuilder()
-                .setColor('#00ff00')
-                .setTitle(`${CONFIG.EMOJIS.VERIFIED} Verificação concluída!`)
-                .setFooter({ text: 'Só você pode ver esta mensagem • Ignorar mensagem' });
-
-            activeCaptchas.delete(interaction.user.id);
-
-            await interaction.editReply({
-                embeds: [success],
+        if (correto !== escolhido) {
+            captchas.delete(interaction.user.id);
+            return interaction.update({
+                ephemeral: true,
+                content: "❌ Código incorreto! Tente novamente.",
+                embeds: [],
                 components: []
             });
         }
 
-    } catch (err) {
-        console.log("Erro:", err);
+        // Sucesso
+        captchas.delete(interaction.user.id);
+        await interaction.member.roles.add(CONFIG.VERIFIED_ROLE_ID);
+
+        interaction.update({
+            ephemeral: true,
+            embeds: [
+                new EmbedBuilder()
+                    .setColor("#00ff88")
+                    .setTitle(`${CONFIG.EMOJIS.VERIFICADO} Verificação concluída com sucesso!`)
+                    .setDescription("*(editado)*")
+            ],
+            components: []
+        });
     }
 });
 
