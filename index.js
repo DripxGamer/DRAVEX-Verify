@@ -79,31 +79,28 @@ async function enviarMensagemVerificacao(channel) {
     if (botMsgs.size) await channel.bulkDelete(botMsgs);
   } catch {}
 
+const LINE = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+
 const embed = new EmbedBuilder()
   .setColor('#111214')
   .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
   .setDescription(
     `${CONFIG.EMOJIS.LOCK} Para verificar sua conta, use os botões abaixo.\n` +
-    `Use o segundo botão para descobrir o motivo desta verificação.\n`
+    `Use o segundo botão para descobrir o motivo desta verificação.\n\n`
   )
-  .setThumbnail('https://i.imgur.com/mXV0zMT.png')
-
-  // 🔹 Linha separadora
-  .addFields({ name: "\u200b", value: "\u200b" })
-
-  // 🔹 Texto central
-  .addFields({
-    name: " ",
-    value: `> **Caso ocorra algum problema, contate a administração.**`
-  })
-
-  // 🔹 Outra linha separadora
-  .addFields({ name: "\u200b", value: "\u200b" })
-
+  .addFields(
+    {
+      name: LINE,
+      value: "> **Caso ocorra algum problema, contate a administração.**"
+    },
+    {
+      name: LINE,
+      value: "\u200b"
+    }
+  )
+  .setThumbnail("https://i.imgur.com/mXV0zMT.png")
   .setImage(ASSETS.BANNER)
   .setTimestamp();
-
-
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -242,5 +239,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(CONFIG.TOKEN);
+
 
 
