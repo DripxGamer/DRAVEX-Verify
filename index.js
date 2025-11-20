@@ -79,8 +79,6 @@ async function enviarMensagemVerificacao(channel) {
     if (botMsgs.size) await channel.bulkDelete(botMsgs);
   } catch {}
 
-const LINE = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-
 const embed = new EmbedBuilder()
   .setColor('#111214')
   .setTitle(`${CONFIG.EMOJIS.LOCK} VERIFICAÇÃO`)
@@ -90,17 +88,18 @@ const embed = new EmbedBuilder()
   )
   .addFields(
     {
-      name: LINE,
+      name: "\u200b", // <--- ESTA É A LINHA VISUAL
       value: "> **Caso ocorra algum problema, contate a administração.**"
     },
     {
-      name: LINE,
+      name: "\u200b", // <--- OUTRA LINHA VISUAL APÓS O TEXTO
       value: "\u200b"
     }
   )
   .setThumbnail("https://i.imgur.com/mXV0zMT.png")
   .setImage(ASSETS.BANNER)
   .setTimestamp();
+
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -239,6 +238,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 client.login(CONFIG.TOKEN);
+
 
 
 
